@@ -4,33 +4,10 @@ on:
   push:
     branches:
       - main
+  pull_request:
 
 jobs:
-  # build:
-  #   # HEADコミットが'skip ci'を含んでいれば、ciをキャンセルする。
-  #   if: "!contains(github.event.head_commit.message, 'skip ci')"
-
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 30
-
-  #   # environmentを設定する！
-  #   environment: production
-  #   steps:
-  #     - name: Check out
-  #       uses: actions/checkout@v2
-  #       with:
-  #         fetch-depth: 2
-
-  #     - name: Set up JDK 11
-  #       uses: actions/setup-java@v2
-  #       with:
-  #         distribution: 'zulu'
-  #         java-version: '11'
-
-  #     - name: Run Android Lint
-  #       run: ./gradlew assembleDebug
-
-  deploy:
+  license-checker:
     runs-on: ubuntu-20.04
     concurrency:
       group: ${{ github.workflow }}-${{ github.ref }}
@@ -54,16 +31,6 @@ jobs:
       - name: Run Android Build
         run: ./gradlew assembleDebug
 
-
-
-      # - name: Setup Hugo
-      #   uses: peaceiris/actions-hugo@v2
-      #   with:
-      #     hugo-version: '0.85.0'
-
-      # - name: Build
-      #   run: hugo --minify
-
       - name: Build
         run: |
           ls
@@ -81,69 +48,152 @@ jobs:
       #   with:
       #     github_token: ${{ secrets.GITHUB_TOKEN }}
       #     publish_dir: ./public
-      - name: Check Diff
-        continue-on-error: true
+      - name: Checkout to ph-pages to compare previous version
         run: |
-          set +e
+          git checkout origin/gh-pages
+      - name: Check diff metadata
+        id: diff-metadata
+        run: |
           metadata_path='third_party_license_metadata'
           data_path='third_party_licenses'
 
-          git checkout origin/gh-pages
-      
-          ls ./public
           meta_file="./third_party_license_metadata"
           if [ ! -e "$meta_file" ]; then
             touch "$meta_file"
           fi
           echo "===== diff start ====="
           set +e
-          diff_meta=`diff ${meta_file} "./public/${metadata_path}"`
+          diff_meta=`diff ${meta_file} "./public/${metadata_path}" | tr '>' '\n>'`
           set -e
           echo "===== echo diff ====="
           echo "$diff_meta"
           echo "===== echo diff finished ====="
-          
+
+          # Preserve results
+          echo "::set-output name=diff::$(echo $diff_meta)"
+        shell: bash
+      - name: Check diff licenses
+        id: diff-license
+        run: |
+          data_path='third_party_licenses'
+
           license_file="./third_party_license"
           if [ ! -e "$license_file" ]; then
             touch "$license_file"
           fi
           set +e
-          diff_license=`diff ${license_file} "./public/${data_path}"`
+          diff_license=`diff ${license_file} "./public/${data_path}" | tr '>' '\n>'`
           set -e
           echo "===== echo diff ====="
           echo "$diff_license"
           echo "===== echo diff finished ====="
 
-          echo "env_diff_meta=$diff_meta" >> $GITHUB_ENV
-          echo "env_diff_license=$diff_license" >> $GITHUB_ENV
-      - uses: actions/checkout@v2
-        with:
-          repository: ${{ github.repository }}
+          # Preserve results
+          echo "::set-output name=diff::$(echo $diff_license)"
+        shell: bash
+      - name: Check Diff
+        continue-on-error: true
+        run: |
+          # set +e
+          # metadata_path='third_party_license_metadata'
+          # data_path='third_party_licenses'
+      
+          # ls ./public
+          # meta_file="./third_party_license_metadata"
+          # if [ ! -e "$meta_file" ]; then
+          #   touch "$meta_file"
+          # fi
+          # echo "===== diff start ====="
+          # set +e
+          # diff_meta=`diff ${meta_file} "./public/${metadata_path}"`
+          # set -e
+          # echo "===== echo diff ====="
+          # echo "$diff_meta"
+          # echo "===== echo diff finished ====="
+          
+          # license_file="./third_party_license"
+          # if [ ! -e "$license_file" ]; then
+          #   touch "$license_file"
+          # fi
+          # set +e
+          # diff_license=`diff ${license_file} "./public/${data_path}"`
+          # set -e
+          # echo "===== echo diff ====="
+          # echo "$diff_license"
+          # echo "===== echo diff finished ====="
+
+          if [ -n "${{ steps.diff-metadata.outputs.diff }}" ]; then
+            echo "diff found!!"
+            echo "env_is_diff=true" >> $GITHUB_ENV
+            echo "${{ steps.diff-metadata.outputs.diff }}" > ./public/diff_metadata
+            echo "${{ steps.diff-license.outputs.diff }}" > ./public/diff_license
+          else
+            echo "diff nooooot found!!"
+            echo "env_is_diff=false" >> $GITHUB_ENV
+          fi
+
+          echo "===== ls public ====="
+          ls public
+
+          echo "id_diff check"
+          echo ${{ env.env_is_diff }}
+
+          # Preserve results
+          # echo "$diff_meta" > ./public/diff_metadata
+          # echo "$diff_license" > ./public/diff_license
+          git checkout ${{ github.repository }}
+      # Update gh-pages if diff found
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
-        if: ${{ github.ref == 'refs/heads/main' }} && ${{ env.env_target != '' }}
+        if: ${{ github.ref == 'refs/heads/main' }} && ${{ env.env_is_diff == 'true' }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
 
-# ╰─ git diff origin/gh-pages:third_party_license_metadata origin/main:README.md                            
+      - name: Outputs when diff found
+        uses: actions/github-script@v5
+        if: env.env_is_diff == 'true'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `### CI/CD Results
+            Hello, I'm kokoichi 👋
+            Here's the License diff result
+            <details><summary>Diff metadata</summary>
+            \`\`\`\n
+            ${{ steps.diff-metadata.outputs.diff }}
+            \`\`\
+            </details>
 
-#       - name: Set the emulator target name to GITHUB_ENV 
-#         id: setup_target_name
-#         run: |
-#           target="default"
-#           if [ "${{ matrix.api-level }}" -ge "29" ]; then
-#             target="google_apis"
-#           fi
-#           echo "env_target=$target" >> $GITHUB_ENV
-#       - name: Run tests
-#         uses: reactivecircus/android-emulator-runner@v2
-#         with:
-#           api-level: ${{ matrix.api-level }}
-#           target: ${{ env.env_target }}
-#           arch: x86
-#           profile: Galaxy Nexus
-#           script: ./gradlew connectedCheck --stacktrace
-# if [ -n "$STRING" ]; then
-#   #処理
-# fi
+            <details><summary>Diff Licenses</summary>
+            \`\`\`\n
+            ${{ steps.diff-license.outputs.diff }}
+            \`\`\
+            </details>
+            
+            see more https://github.com/kokoichi206/actions-diff-and-notify/tree/gh-pages
+            `;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+      - name: Outputs when NO diff found
+        uses: actions/github-script@v5
+        if: env.env_is_diff == 'false'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `### CI/CD Results
+            Hello, I'm kokoichi 👋
+            No License Diff Found
+
+            see current license [here](https://github.com/kokoichi206/actions-diff-and-notify/tree/gh-pages)`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
