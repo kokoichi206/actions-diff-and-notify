@@ -63,7 +63,9 @@ jobs:
           fi
           echo "===== diff start ====="
           set +e
-          diff_meta=`diff ${meta_file} "./public/${metadata_path}" | tr '>' '\n>'`
+          # FIXME: 2回同じ計算してる
+          diff_meta=`diff ${meta_file} "./public/${metadata_path}"`
+          diff ${meta_file} "./public/${metadata_path}" > ./public/diff_metadata
           set -e
           echo "===== echo diff ====="
           echo "$diff_meta"
@@ -82,7 +84,9 @@ jobs:
             touch "$license_file"
           fi
           set +e
-          diff_license=`diff ${license_file} "./public/${data_path}" | tr '>' '\n>'`
+          # FIXME: 2回同じ計算してる
+          diff_license=`diff ${license_file} "./public/${data_path}"`
+          diff ${license_file} "./public/${data_path}" > ./public/diff_license
           set -e
           echo "===== echo diff ====="
           echo "$diff_license"
@@ -93,40 +97,13 @@ jobs:
         shell: bash
       - name: Check Diff
         continue-on-error: true
-        run: |
-          # set +e
-          # metadata_path='third_party_license_metadata'
-          # data_path='third_party_licenses'
-      
-          # ls ./public
-          # meta_file="./third_party_license_metadata"
-          # if [ ! -e "$meta_file" ]; then
-          #   touch "$meta_file"
-          # fi
-          # echo "===== diff start ====="
-          # set +e
-          # diff_meta=`diff ${meta_file} "./public/${metadata_path}"`
-          # set -e
-          # echo "===== echo diff ====="
-          # echo "$diff_meta"
-          # echo "===== echo diff finished ====="
-          
-          # license_file="./third_party_license"
-          # if [ ! -e "$license_file" ]; then
-          #   touch "$license_file"
-          # fi
-          # set +e
-          # diff_license=`diff ${license_file} "./public/${data_path}"`
-          # set -e
-          # echo "===== echo diff ====="
-          # echo "$diff_license"
-          # echo "===== echo diff finished ====="
-
+        run: |        
           if [ -n "${{ steps.diff-metadata.outputs.diff }}" ]; then
             echo "diff found!!"
             echo "env_is_diff=true" >> $GITHUB_ENV
-            echo "${{ steps.diff-metadata.outputs.diff }}" > ./public/diff_metadata
-            echo "${{ steps.diff-license.outputs.diff }}" > ./public/diff_license
+            # cat `echo "${{ steps.diff-metadata.outputs.diff }}"` > ./public/diff_metadata
+            # cat `echo "${{ steps.diff-license.outputs.diff }}"` > ./public/diff_license
+            # echo "${{ steps.diff-license.outputs.diff }}" > ./public/diff_license
           else
             echo "diff nooooot found!!"
             echo "env_is_diff=false" >> $GITHUB_ENV
@@ -145,7 +122,7 @@ jobs:
       # Update gh-pages if diff found
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
-        if: ${{ github.ref == 'refs/heads/main' }} && ${{ env.env_is_diff == 'true' }}
+        if: ${{ github.ref == 'refs/heads/main' }} && env.env_is_diff == 'true'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
@@ -158,7 +135,9 @@ jobs:
           script: |
             const output = `### CI/CD Results
             Hello, I'm kokoichi 👋
-            Here's the License diff result
+
+            License diff found in your commit!
+            Please check if there's no problem.
             <details><summary>Diff metadata</summary>
             \`\`\`\n
             ${{ steps.diff-metadata.outputs.diff }}
