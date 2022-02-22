@@ -1,0 +1,45 @@
+name: Version check
+
+on:
+  pull_request:
+
+jobs:
+  version-checker:
+    runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # 0 means all branches
+
+      - name: Check dir
+        run: |
+          ls
+          cat app/build.gradle
+      - name: Check
+        run: |
+          git checkout ${GITHUB_BASE_REF}
+          cat app/build.gradle
+      - name: Check
+        run: |
+          git checkout ${GITHUB_HEAD_REF}
+          cat app/build.gradle
+
+      - name: Outputs when NO diff found
+        uses: actions/github-script@v5
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `### CI/CD Results
+            Hello, I'm kokoichi 👋
+            No License Diff Found
+
+            see current license [here](https://github.com/kokoichi206/actions-diff-and-notify/tree/gh-pages)`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
