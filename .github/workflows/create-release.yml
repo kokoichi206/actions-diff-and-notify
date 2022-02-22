@@ -1,0 +1,104 @@
+name: Version check
+
+on:
+  workflow_call:
+
+# バージョン値はapp/build.gradleに以下の形式で記述されている
+# def versionMajor = 1
+# def versionMinor = 0
+# def versionPatch = 1
+jobs:
+  create-release:
+    runs-on: ubuntu-20.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # 0 means all branches
+
+      - name: Get version of BASE_REF
+        id: version-base-ref
+        run: |
+          git checkout ${GITHUB_BASE_REF}
+
+          # check the file
+          FILE="app/build.gradle"
+          while read line
+          do
+            if [[ "$line" =~ "def versionMajor"([ ]*)=([ ]*)([0-9]*) ]]; then
+              MAJOR="${BASH_REMATCH[3]}"
+            elif [[ "$line" =~ "def versionMinor"([ ]*)=([ ]*)([0-9]*) ]]; then
+              MINOR="${BASH_REMATCH[3]}"
+            elif [[ "$line" =~ "def versionPatch"([ ]*)=([ ]*)([0-9]*) ]]; then
+              PATCH="${BASH_REMATCH[3]}"
+            fi
+          done < "$FILE"
+
+          if [ -z "$MAJOR" ] || [ -z "$MINOR" ] || [ -z "$PATCH" ]; then
+            exit 1
+          fi
+          echo "::set-output name=major::$(echo ${MAJOR})"
+          echo "::set-output name=minor::$(echo ${MINOR})"
+          echo "::set-output name=full::$(echo ${MAJOR}.${MINOR}.${PATCH})"
+
+      - name: Get version of HEAD_REF
+        id: version-head-ref
+        run: |
+          git checkout ${GITHUB_HEAD_REF}
+
+          # check the file
+          FILE="app/build.gradle"
+          while read line
+          do
+            if [[ "$line" =~ "def versionMajor"([ ]*)=([ ]*)([0-9]*) ]]; then
+              MAJOR="${BASH_REMATCH[3]}"
+            elif [[ "$line" =~ "def versionMinor"([ ]*)=([ ]*)([0-9]*) ]]; then
+              MINOR="${BASH_REMATCH[3]}"
+            elif [[ "$line" =~ "def versionPatch"([ ]*)=([ ]*)([0-9]*) ]]; then
+              PATCH="${BASH_REMATCH[3]}"
+            fi
+          done < "$FILE"
+
+          if [ -z "$MAJOR" ] || [ -z "$MINOR" ] || [ -z "$PATCH" ]; then
+            exit 1
+          fi
+          echo "::set-output name=major::$(echo ${MAJOR})"
+          echo "::set-output name=minor::$(echo ${MINOR})"
+
+      - name: Check whether release is needed
+        id: is-release-need
+        run: |
+          base_major="${{ steps.version-base-ref.outputs.major }}"
+          base_minor="${{ steps.version-base-ref.outputs.minor }}"
+          head_major="${{ steps.version-head-ref.outputs.major }}"
+          head_minor="${{ steps.version-head-ref.outputs.minor }}"
+          if [[ "$base_major" != "$head_major" || "$base_minor" != "$head_minor" ]]; then
+            echo "::set-output name=need::true"
+          else
+            echo "::set-output name=need::false"
+          fi
+      
+      - name: Release body
+        if: ${{ steps.is-release-need.outputs.need }}
+        run: |
+          commits=`git log ${GITHUB_BASE_REF}..${GITHUB_HEAD_REF} --oneline --no-merges`
+
+      - name: Add tag
+        run: |
+          git config --local user.email "${GITHUB_ACTOR}@from.github.actions"
+          git config --local user.name "${GITHUB_ACTOR}"
+          version="${{ steps.version-head-ref.outputs.full }}"
+          git tag -a "v${version}" -m "version ${version}"
+          git push origin "v${version}"
+
+      - uses: octokit/request-action@v2.x
+        id: add_pr_comment
+        with:
+          route: POST /repos/{owner}/{repo}/releases/generate-notes
+          owner: ${GITHUB_ACTOR}
+          repo: ${{ github.repository }}
+          tag_name: ${{ steps.version-head-ref.outputs.full }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
