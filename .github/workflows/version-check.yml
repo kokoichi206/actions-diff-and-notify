@@ -1,8 +1,12 @@
 name: Version check
 
 on:
-  pull_request:
+  workflow_call:
 
+# バージョン値はapp/build.gradleに以下の形式で記述されている
+# def versionMajor = 1
+# def versionMinor = 0
+# def versionPatch = 1
 jobs:
   version-checker:
     runs-on: ubuntu-20.04
@@ -14,32 +18,57 @@ jobs:
         with:
           fetch-depth: 0 # 0 means all branches
 
-      - name: Check dir
-        run: |
-          ls
-          cat app/build.gradle
-      - name: Check
+      - name: Get version of BASE_REF
+        id: version-base-ref
         run: |
           git checkout ${GITHUB_BASE_REF}
-          cat app/build.gradle
-      - name: Check
+
+          # check the file
+          FILE="app/build.gradle"
+          while read line
+          do
+            if [[ "$line" =~ "def versionMajor"([ ]*)=([ ]*)([0-9]*) ]]; then
+              MAJOR="${BASH_REMATCH[3]}"
+            elif [[ "$line" =~ "def versionMinor"([ ]*)=([ ]*)([0-9]*) ]]; then
+              MINOR="${BASH_REMATCH[3]}"
+            elif [[ "$line" =~ "def versionPatch"([ ]*)=([ ]*)([0-9]*) ]]; then
+              PATCH="${BASH_REMATCH[3]}"
+            fi
+          done < "$FILE"
+
+          if [ -z "$MAJOR" ] || [ -z "$MINOR" ] || [ -z "$PATCH" ]; then
+            exit 1
+          fi
+          echo "::set-output name=version::$(echo ${MAJOR}.${MINOR}.${PATCH})"
+
+      - name: Get version of HEAD_REF
+        id: version-head-ref
         run: |
           git checkout ${GITHUB_HEAD_REF}
-          cat app/build.gradle
 
-      - name: Outputs when NO diff found
-        uses: actions/github-script@v5
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const output = `### CI/CD Results
-            Hello, I'm kokoichi 👋
-            No License Diff Found
+          # check the file
+          FILE="app/build.gradle"
+          while read line
+          do
+            if [[ "$line" =~ "def versionMajor"([ ]*)=([ ]*)([0-9]*) ]]; then
+              MAJOR="${BASH_REMATCH[3]}"
+            elif [[ "$line" =~ "def versionMinor"([ ]*)=([ ]*)([0-9]*) ]]; then
+              MINOR="${BASH_REMATCH[3]}"
+            elif [[ "$line" =~ "def versionPatch"([ ]*)=([ ]*)([0-9]*) ]]; then
+              PATCH="${BASH_REMATCH[3]}"
+            fi
+          done < "$FILE"
 
-            see current license [here](https://github.com/kokoichi206/actions-diff-and-notify/tree/gh-pages)`;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: output
-            })
+          if [ -z "$MAJOR" ] || [ -z "$MINOR" ] || [ -z "$PATCH" ]; then
+            exit 1
+          fi
+          echo "::set-output name=version::$(echo ${MAJOR}.${MINOR}.${PATCH})"
+
+      - name: Check whether version is updated
+        run: |
+          base="${{ steps.version-base-ref.outputs.version }}"
+          head="${{ steps.version-head-ref.outputs.version }}"
+          if [[ "$base" != "$head" ]]; then
+            echo "Version is not updated!"
+            exit 1
+          fi
