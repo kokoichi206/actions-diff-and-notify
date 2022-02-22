@@ -105,11 +105,15 @@ jobs:
           owner="${GITHUB_ACTOR}"
           owner_repo="${{ github.repository }}" # owner/repo
           tag_name="${{ steps.version-head-ref.outputs.full }}"
+          echo "https://api.github.com/repos/${owner_repo}/releases/generate-notes"
+          echo "$tag_name"
+          echo "{'tag_name':'v${tag_name}'}"
+          echo '{"tag_name":"${tag_name}"}'
           curl \
             -X POST \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${owner_repo}/releases/generate-notes \
-            -d '{"tag_name":"${tag_name}"}'
+            -d "{'tag_name':'v${tag_name}'}"
 
       # - uses: octokit/request-action@v2.x
       #   id: add_pr_comment
