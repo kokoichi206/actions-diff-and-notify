@@ -6,4 +6,4 @@ on:
 
 jobs:
   version-check:
-    uses: kokoichi206/actions-diff-and-notify/.github/workflows/version-check.yml@test
+    uses: kokoichi206/actions-diff-and-notify/.github/workflows/version-check.yml@6adacc9fae6a20d3d086eda85a1e81f99b61abca
