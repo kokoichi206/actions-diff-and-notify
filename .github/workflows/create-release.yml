@@ -90,18 +90,25 @@ jobs:
           git config --local user.email "${GITHUB_ACTOR}@from.github.actions"
           git config --local user.name "${GITHUB_ACTOR}"
           version="${{ steps.version-head-ref.outputs.full }}"
-          git tag -a "v${version}" -m "version ${version}"
-          git push origin "v${version}"
+
+          exist_tag=`git tag | grep v${version}`
+          if [ -n "$exist_tag" ]; then
+            echo "tag already exists"
+            # exit 1
+          else
+            git tag -a "v${version}" -m "version ${version}"
+            git push origin "v${version}"
+          fi
 
       - name: Create release-notes
         run: |
           owner="${GITHUB_ACTOR}"
-          repo="${{ github.repository }}"
+          owner_repo="${{ github.repository }}" # owner/repo
           tag_name="${{ steps.version-head-ref.outputs.full }}"
           curl \
             -X POST \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${owner}/${repo}/releases/generate-notes \
+            https://api.github.com/repos/${owner_repo}/releases/generate-notes \
             -d '{"tag_name":"${tag_name}"}'
 
       # - uses: octokit/request-action@v2.x
