@@ -4,6 +4,10 @@ plugins {
     id 'com.google.android.gms.oss-licenses-plugin'
 }
 
+def versionMajor = 1
+def versionMinor = 0
+def versionPatch = 1
+
 android {
     compileSdk 32
 
@@ -11,8 +15,8 @@ android {
         applicationId "jp.mydns.kokoichi0206.actionsdiffchecker"
         minSdk 26
         targetSdk 32
-        versionCode 1
-        versionName "1.0"
+        versionCode versionMajor * 10000 + versionMinor * 100 + versionPatch
+        versionName "${versionMajor}.${versionMinor}.${versionPatch}"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
