@@ -1,0 +1,9 @@
+name: Version check
+
+on:
+  pull_request:
+
+
+jobs:
+  version-check:
+    uses: kokoichi206/actions-diff-and-notify/.github/workflows/version-check.yml@test
