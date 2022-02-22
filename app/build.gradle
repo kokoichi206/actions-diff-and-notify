@@ -4,6 +4,10 @@ plugins {
     id 'com.google.android.gms.oss-licenses-plugin'
 }
 
+def versionMajor = 1
+def versionMinor = 0
+def versionPatch = 1
+
 android {
     compileSdk 32
 
@@ -11,8 +15,8 @@ android {
         applicationId "jp.mydns.kokoichi0206.actionsdiffchecker"
         minSdk 26
         targetSdk 32
-        versionCode 1
-        versionName "1.0"
+        versionCode versionMajor * 10000 + versionMinor * 100 + versionPatch
+        versionName "${versionMajor}.${versionMinor}.${versionPatch}"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -63,11 +67,4 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
-
-    implementation 'com.google.android.gms:play-services-oss-licenses:17.0.0'
-
-    // Action bar helper
-    implementation "com.google.accompanist:accompanist-systemuicontroller:0.17.0"
-    // Animated navigation
-    implementation "com.google.accompanist:accompanist-navigation-animation:0.20.2"
 }
