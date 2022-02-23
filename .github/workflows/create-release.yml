@@ -1,10 +1,7 @@
-name: Version check
+name: Release
 
 on:
   workflow_call:
-    secrets:
-      TOKEN:
-        required: true
 
 # バージョン値はapp/build.gradleに以下の形式で記述されている
 # def versionMajor = 1
@@ -82,11 +79,6 @@ jobs:
           else
             echo "::set-output name=need::false"
           fi
-      
-      - name: Release body
-        if: ${{ steps.is-release-need.outputs.need }}
-        run: |
-          commits=`git log ${GITHUB_BASE_REF}..${GITHUB_HEAD_REF} --oneline --no-merges`
 
       - name: Add tag
         run: |
@@ -103,35 +95,50 @@ jobs:
             git push origin "v${version}"
           fi
 
-      - name: Create release-notes
+      - name: Create Body
+        id: create-body
         run: |
-          owner="${GITHUB_ACTOR}"
+          feature=()
+          bugfix=()
+          maintenance=()
+
+          # Commits list
+          commits=`git log ${GITHUB_BASE_REF}..${GITHUB_HEAD_REF} --oneline --no-merges`
+
+          while read commit
+          do
+            if [[ "$commit" =~ .*(feat).* ]]; then
+              feature+=( "$commit" )
+            elif [[ "$commit" =~ .*(bug|fix).* ]]; then
+              bugfix+=( "$commit" )
+            else
+              maintenance+=( "$commit" )
+            fi
+          done <<< "$commits"
+
+          body="## 👊 Features\n"
+          for feat in "${feature[@]}"; do
+            body+="* $feat\n"
+          done
+
+          body+="## 🐛 Bugfix\n"
+          for fix in "${bugfix[@]}"; do
+            body+="* $fix\n"
+          done
+
+          body+="## 🌴 Maintenance\n"
+          for maint in "${maintenance[@]}"; do
+            body+="* $maint\n"
+          done
+
+          echo "::set-output name=body::$(echo ${body})"
+
+      - name: Create release-notes
+        if: ${{ steps.is-release-need.outputs.need }}
+        run: |
           owner_repo="${{ github.repository }}" # owner/repo
           tag_name="${{ steps.version-head-ref.outputs.full }}"
-          echo "https://api.github.com/repos/${owner_repo}/releases/generate-notes"
-          echo "$owner"
-          echo "$tag_name"
-          echo "{'tag_name':'v${tag_name}'}"
-          echo '{"tag_name":"${tag_name}"}'
-          body="Hello world"
-
-          # need specific http: https://github.com/curl/curl/issues/3909
-          # curl \
-          #   --http1.1 \
-          #   -L \
-          #   -X POST \
-          #   -H "Authorization:token ${{ secrets.GITHUB_TOKEN }}" \
-          #   -H "Accept: application/vnd.github.v3+json" \
-          #   -H "Content-Type:application/json" \
-          #   -d '{
-          #     "tag_name": "v1.0.1",
-          #     "name": "v1.0.1",
-          #     "body": "Description of the release",
-          #     "draft": true,
-          #     "generate_release_notes": true,
-          #     "prerelease": true
-          #   }' \
-          #   https://api.github.com/repos/${owner_repo}/releases/generate-notes
+          body="${{ steps.create-body.outputs.body }}"
 
           curl \
             -X POST \
@@ -139,110 +146,10 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             -d '{
               "tag_name": "'"v$tag_name"'",
-              "name": "WIP: ",
+              "name": "'"v$tag_name"'",
               "body": "'"$body"'",
-              "draft": true,
+              "draft": false,
               "generate_release_notes": true,
               "prerelease": true
             }' \
             https://api.github.com/repos/${owner_repo}/releases
-
-
-# "'"$1"'"
-
-
-            # -d '{"tag_name":"v1.0.1","name": "WIP: ","body": "Description of the release","draft": true,"generate_release_notes": true}'
-          # curl \
-          #   --http1.1 \
-          #   -X POST \
-          #   -H "\'Authorization\':\'token ${{ secrets.GITHUB_TOKEN }}\', \'Accept\': \'application/vnd.github.v3+json\'" \
-          #   https://api.github.com/repos/${owner_repo}/releases/generate-notes \
-          #   -d "{\'tag_name\':\'v${tag_name}\', \'body\': \'Description of the release\'}"
-          #   # -u "\'${GITHUB_ACTOR}\':\'${{ secrets.TOKEN }}\'" \
-          #   # -H "\'Accept\': \'application/vnd.github.v3+json\'" \
-
-          # curl \
-          #   -X POST \
-          #   -H "Authorization:token ${{ secrets.TOKEN }}, Accept: application/vnd.github.v3+json" \
-          #   https://api.github.com/repos/${owner_repo}/releases/generate-notes \
-          #   -d "{'tag_name':'v${tag_name}', 'body': 'Description of the release'}"
-
-# -L \
-
-# curl \
-#   -L \
-#   -X POST \
-#   -H "\'Authorization\':\'token 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\', \'Accept\': \'application/vnd.github.v3+json\'" \
-#   https://api.github.com/repos/kokoichi206/actions-diff-and-notify/releases/generate-notes \
-#   -d "{\'tag_name\':\'v1.0.1\', \'body\': \'Description of the release\'}"
-# curl \
-#   --http1.1 \
-#   -L \
-#   -X POST \
-#   -H "Authorization:token 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" \
-#   -H "Accept: application/vnd.github.v3+json" \
-#   https://api.github.com/repos/kokoichi206/actions-diff-and-notify/releases/generate-notes \
-#   -d "{tag_name:v1.0.1}"
-# curl \
-#   --http1.1 \
-#   -L \
-#   -X POST \
-#   -H "\'Authorization\':\'token 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\'" \
-#   -H "\'Accept\': \'application/vnd.github.v3+json\'" \
-#   https://api.github.com/repos/kokoichi206/actions-diff-and-notify/releases/generate-notes \
-#   -d "{tag_name:\'v1.0.1\', \'body\': \'Description of the release\'}"
-# curl \
-#   -L \
-#   -X POST \
-# curl \
-#   --http1.1 \
-#   -X POST \
-#   -H "\'Authorization\':\'token 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\', \'Accept\': \'application/vnd.github.v3+json\'" \
-#   https://api.github.com/repos/kokoichi206/actions-diff-and-notify/releases/generate-notes \
-#   -d "{\'tag_name\':\'v1.0.1\', \'body\': \'Description of the release\'}"
-
-# curl \
-#   --http1.1 \
-#   -X POST \
-#   -H "\'Authorization\':\'token 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\'" \
-#   https://api.github.com/repos/kokoichi206/actions-diff-and-notify/releases/generate-notes \
-#   -d "{\'tag_name\':\'v1.0.1\', \'body\': \'Description of the release\'}"
-
-# curl \
-#   -X POST \
-#   -u kokoichi206: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 \
-#   -H "\'Accept\': \'application/vnd.github.v3+json\'" \
-#   https://api.github.com/repos/kokoichi206/actions-diff-and-notify/releases/generate-notes \
-#   -d "{\'tag_name\':\'v1.0.1\'}"
-#   -d "{'tag_name':'v1.0.1', 'body': 'Description of the release'}"
-
-
-
-      # - uses: actions/github-script@v3
-      #   with:
-      #     script: |
-      #       console.log(context);
-
-      #       import { Octokit } from "https://cdn.skypack.dev/@octokit/core";
-
-      #       const octokit = new Octokit({ auth: `personal-access-token123` });
-      #       await octokit.request('POST /repos/{owner}/{repo}/releases/generate-notes', {
-      #         owner: 'octocat',
-      #         repo: 'hello-world',
-      #         tag_name: 'tag_name'
-      #       })
-
-# $ curl -u 'kokoichi206' -d '{"scopes":["repo"],"note":"Help example"}' https://api.github.com/authorizations
-
-# /repos/{owner}/{repo}/releases/generate-notes
-#   https://api.github.com/repos/octocat/hello-world/releases/generate-notes 
-#   https://api.github.com/repos/${owner_repo}/releases/generate-notes"
-      # - uses: octokit/request-action@v2.x
-      #   id: add_pr_comment
-      #   with:
-      #     route: POST /repos/{owner}/{repo}/releases/generate-notes
-      #     owner: ${GITHUB_ACTOR}
-      #     repo: ${{ github.repository }}
-      #     tag_name: ${{ steps.version-head-ref.outputs.full }}
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
