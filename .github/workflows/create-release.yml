@@ -81,6 +81,7 @@ jobs:
           fi
 
       - name: Add tag
+        if: ${{ steps.is-release-need.outputs.need }}
         run: |
           git config --local user.email "${GITHUB_ACTOR}@from.github.actions"
           git config --local user.name "${GITHUB_ACTOR}"
@@ -89,13 +90,14 @@ jobs:
           exist_tag=`git tag | grep v${version}`
           if [ -n "$exist_tag" ]; then
             echo "tag already exists"
-            # exit 1
+            exit 1
           else
             git tag -a "v${version}" -m "version ${version}"
             git push origin "v${version}"
           fi
 
       - name: Create Body
+        if: ${{ steps.is-release-need.outputs.need }}
         id: create-body
         run: |
           feature=()
