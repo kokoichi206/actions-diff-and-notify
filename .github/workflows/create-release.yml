@@ -83,8 +83,9 @@ jobs:
       - name: Add tag
         if: ${{ steps.is-release-need.outputs.need }}
         run: |
-          git config --local user.email "${GITHUB_ACTOR}@from.github.actions"
-          git config --local user.name "${GITHUB_ACTOR}"
+          echo "add tag start"
+          git config --local user.email "${GITHUB_ACTOR}@from.github.actions" || echo "No changes to commit"
+          git config --local user.name "${GITHUB_ACTOR}" || echo "No changes to commit"
           version="${{ steps.version-head-ref.outputs.full }}"
           echo "add tag"
 
