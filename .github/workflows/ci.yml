@@ -2,8 +2,13 @@ name: Version check
 
 on:
   pull_request:
-
+    branches:
+      - main
+    types: [closed]
 
 jobs:
-  version-check:
-    uses: kokoichi206/actions-diff-and-notify/.github/workflows/version-check.yml@732fbec20ec7e9322a04c68cc5f77126177edc44
+  # version-check:
+  #   uses: kokoichi206/actions-diff-and-notify/.github/workflows/version-check.yml@732fbec20ec7e9322a04c68cc5f77126177edc44
+  create-release:
+    if: github.event.pull_request.merged == true
+    uses: kokoichi206/actions-diff-and-notify/.github/workflows/create-release.yml@release
