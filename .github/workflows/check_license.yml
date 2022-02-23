@@ -2,8 +2,8 @@ name: Build, check diff and Deploy
 
 on:
   push:
-    branches:
-      - main
+    # branches:
+    #   - main
   # pull_request:
 
 jobs:
