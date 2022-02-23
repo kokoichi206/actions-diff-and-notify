@@ -93,7 +93,7 @@ jobs:
             echo "tag already exists"
             exit 1
           else
-            echo "else r"
+            echo "add tag else else"
             git tag -a "v${version}" -m "version ${version}"
             git push origin "v${version}"
           fi
@@ -106,8 +106,11 @@ jobs:
           bugfix=()
           maintenance=()
 
+          tag1=`git tag | tail -n1`
+          tag2=`git tag | tail -n2 | awk 'NR==1'`
+
           # Commits list
-          commits=`git log ${GITHUB_BASE_REF}..${GITHUB_HEAD_REF} --oneline --no-merges`
+          commits=`git log ${tag2}..${tag1} --oneline --no-merges`
 
           while read commit
           do
