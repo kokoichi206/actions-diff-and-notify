@@ -114,11 +114,15 @@ jobs:
           echo "{'tag_name':'v${tag_name}'}"
           echo '{"tag_name":"${tag_name}"}'
 
+          # need specific http: https://github.com/curl/curl/issues/3909
           curl \
-            -u "\'${GITHUB_ACTOR}\':\'${{ secrets.TOKEN }}\'" \
-            -H "\'Accept\': \'application/vnd.github.v3+json\'" \
+            --http1.1 \
+            -X POST \
+            -H "\'Authorization\':\'token ${{ secrets.GITHUB_TOKEN }}\', \'Accept\': \'application/vnd.github.v3+json\'" \
             https://api.github.com/repos/${owner_repo}/releases/generate-notes \
-            -d "{\'tag_name\':\'v${tag_name}\', \'body\': \'Description of the release\'}}"
+            -d "{\'tag_name\':\'v${tag_name}\', \'body\': \'Description of the release\'}"
+            # -u "\'${GITHUB_ACTOR}\':\'${{ secrets.TOKEN }}\'" \
+            # -H "\'Accept\': \'application/vnd.github.v3+json\'" \
 
           # curl \
           #   -X POST \
@@ -137,6 +141,16 @@ jobs:
 
 # curl \
 #   -L \
+#   -X POST \
+# curl \
+#   --http1.1 \
+#   -X POST \
+#   -H "\'Authorization\':\'token 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\', \'Accept\': \'application/vnd.github.v3+json\'" \
+#   https://api.github.com/repos/kokoichi206/actions-diff-and-notify/releases/generate-notes \
+#   -d "{\'tag_name\':\'v1.0.1\', \'body\': \'Description of the release\'}"
+
+# curl \
+#   --http1.1 \
 #   -X POST \
 #   -H "\'Authorization\':\'token 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\'" \
 #   https://api.github.com/repos/kokoichi206/actions-diff-and-notify/releases/generate-notes \
