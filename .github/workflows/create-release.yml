@@ -2,6 +2,9 @@ name: Version check
 
 on:
   workflow_call:
+    secrets:
+      TOKEN:
+        required: true
 
 # バージョン値はapp/build.gradleに以下の形式で記述されている
 # def versionMajor = 1
@@ -10,8 +13,8 @@ on:
 jobs:
   create-release:
     runs-on: ubuntu-20.04
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+    
+    environment: production
     steps:
       - name: Check out
         uses: actions/checkout@v2
@@ -112,7 +115,7 @@ jobs:
 
           curl \
             -X POST \
-            -H "Authorization:token ${{ secrets.GITHUB_TOKEN }}, Accept: application/vnd.github.v3+json" \
+            -H "Authorization:token ${{ secrets.TOKEN }}, Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${owner_repo}/releases/generate-notes \
             -d "{'tag_name':'v${tag_name}', 'body': 'Description of the release'}"
 
