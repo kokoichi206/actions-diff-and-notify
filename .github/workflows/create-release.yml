@@ -86,12 +86,14 @@ jobs:
           git config --local user.email "${GITHUB_ACTOR}@from.github.actions"
           git config --local user.name "${GITHUB_ACTOR}"
           version="${{ steps.version-head-ref.outputs.full }}"
+          echo "add tag"
 
           exist_tag=`git tag | grep v${version}`
           if [ -n "$exist_tag" ]; then
             echo "tag already exists"
             exit 1
           else
+            echo "else r"
             git tag -a "v${version}" -m "version ${version}"
             git push origin "v${version}"
           fi
